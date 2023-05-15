@@ -24,7 +24,7 @@ typedef struct
 int num_items = 0;
 HashItem table[TABLE_SIZE];
 
-// Hash function: mod [h(k) = mod m]
+// Hash function: mod [h(k) = k mod m]
 int hash_function(char *name)
 {
     int hash = 0;
@@ -138,7 +138,7 @@ void save_inventory(char *filename)
         return;
     }
 
-    fprintf(file, "\t Inventory\n");
+    fprintf(file, "\t *Inventory*\n");
     for (int i = 0; i < TABLE_SIZE; i++)
     {
         if (table[i].key != 0)
@@ -180,7 +180,7 @@ void display_inventory_from_file()
 }
 
 // Function to remove item from inventory
-void remove_item()
+void remove_items()
 {
     FILE *file = fopen("inventory.txt", "r");
     if (file == NULL)
@@ -188,6 +188,10 @@ void remove_item()
         printf("Error opening file\n");
         return;
     }
+
+    int items_to_remove;
+    printf("Enter the number of items to remove: ");
+    scanf("%d", &items_to_remove);
 
     char item_name[20];
     printf("Enter the name of the item to remove: ");
@@ -199,6 +203,7 @@ void remove_item()
     fgets(line, 100, file);
 
     int found = 0;
+    int removed_count = 0;
     do
     {
         while (fgets(line, 100, file))
@@ -207,20 +212,28 @@ void remove_item()
             sscanf(line, "%s %d %f", item.name, &item.quantity, &item.price);
             if (strcmp(item.name, item_name) == 0)
             {
-                printf("%s removed from inventory\n", item_name);
-                found = 1;
+                if (item.quantity >= items_to_remove)
+                {
+                    item.quantity -= items_to_remove;
+                    printf("%d %s removed from inventory\n", items_to_remove, item_name);
+                    found = 1;
 
-                // Remove the item from the inventory table
-                int key = hash_function(item_name);
-                table[key].key = 0;
-                table[key].name1[0] = '\0';
-                table[key].value.quantity = 0;
-                table[key].value.price = 0;
+                    // Update the item's quantity in the hash table
+                    int key = hash_function(item_name);
+                    table[key].value.quantity -= items_to_remove;
 
+                    // Rewrite the line in the file with the updated quantity
+                    fseek(file, -strlen(line), SEEK_CUR);
+                    fprintf(file, "%s %d %.2f\n", item.name, item.quantity, item.price);
+                }
+                else
+                {
+                    printf("Not enough %s in inventory. Only %d available.\n", item_name, item.quantity);
+                }
                 break;
             }
         }
-    } while (!feof(file) && !found);
+    } while (!feof(file) && !found && removed_count < items_to_remove);
 
     fclose(file);
 
@@ -364,7 +377,7 @@ int main()
             display_inventory_from_file();
             break;
         case 3:
-            remove_item();
+            remove_items();
             break;
         case 4:
             display_low_quantity_items();
